@@ -21,7 +21,7 @@ require_once $config_file;
 
 if(empty($timezone))
 {
-	$timezone = "UTC";
+    $timezone = "UTC";
 	print "No timezone set in config ($config_file), using $timezone\n";
 }
 date_default_timezone_set($timezone);
@@ -42,82 +42,83 @@ if (!empty($proxy)) {
         'http' => array(
             'proxy' => 'tcp://' . $proxy,
             'request_fullurl' => true
-        )
-    );
-    $ctx = stream_context_create($aContext);
-}
-
-// 1) Fetch all Trello Boards
-$application_token = trim($application_token);
-$url_boards = "https://api.trello.com/1/members/me/boards?&key=$key&token=$application_token";
-$response = file_get_contents($url_boards, false, $ctx);
-if ($response === false) {
-    die("Error requesting boards - maybe try again later and/or check your internet connection\n");
-}
-$boardsInfo = json_decode($response);
-if (empty($boardsInfo)) {
-    die("Error requesting your boards - maybe check your tokens are correct.\n");
-}
-
-// 2) Fetch all Trello Organizations
-$url_organizations = "https://api.trello.com/1/members/me/organizations?&key=$key&token=$application_token";
-$response = file_get_contents($url_organizations, false, $ctx);
-$organizationsInfo = json_decode($response);
-$organizations = array();
-foreach ($organizationsInfo as $org) {
-    $organizations[$org->id] = $org->displayName;
-}
-
-// 3) Fetch all Trello Boards from the organizations that the user has read access to
-if ($backup_all_organization_boards) {
-    foreach ($organizations as $organization_id => $organization_name) {
-        $url_boards = "https://api.trello.com/1/organizations/$organization_id/boards?&key=$key&token=$application_token";
-        $response = file_get_contents($url_boards, false, $ctx);
-        $organizationBoardsInfo = json_decode($response);
-        if (empty($organizationBoardsInfo)) {
-            die("Error requesting the organization $organization_name boards - maybe check your tokens are correct.\n");
-        } else {
-            $boardsInfo = array_merge($organizationBoardsInfo, $boardsInfo);
+            )
+        );
+        $ctx = stream_context_create($aContext);
+    }
+    
+    // 1) Fetch all Trello Boards
+    $application_token = trim($application_token);
+    $url_boards = "https://api.trello.com/1/members/me/boards?&key=$key&token=$application_token";
+    $response = file_get_contents($url_boards, false, $ctx);
+    if ($response === false) {
+        die("Error requesting boards - maybe try again later and/or check your internet connection\n");
+    }
+    $boardsInfo = json_decode($response);
+    if (empty($boardsInfo)) {
+        die("Error requesting your boards - maybe check your tokens are correct.\n");
+    }
+    
+    // 2) Fetch all Trello Organizations
+    $url_organizations = "https://api.trello.com/1/members/me/organizations?&key=$key&token=$application_token";
+    $response = file_get_contents($url_organizations, false, $ctx);
+    $organizationsInfo = json_decode($response);
+    $organizations = array();
+    foreach ($organizationsInfo as $org) {
+        $organizations[$org->id] = $org->displayName;
+    }
+    
+    // 3) Fetch all Trello Boards from the organizations that the user has read access to
+    if ($backup_all_organization_boards) {
+        foreach ($organizations as $organization_id => $organization_name) {
+            $url_boards = "https://api.trello.com/1/organizations/$organization_id/boards?&key=$key&token=$application_token";
+            $response = file_get_contents($url_boards, false, $ctx);
+            $organizationBoardsInfo = json_decode($response);
+            if (empty($organizationBoardsInfo)) {
+                die("Error requesting the organization $organization_name boards - maybe check your tokens are correct.\n");
+            } else {
+                $boardsInfo = array_merge($organizationBoardsInfo, $boardsInfo);
+            }
         }
     }
-}
-
-// 4) Only backup the "open" boards
-$boards = array();
-foreach ($boardsInfo as $board) {
-    if (!$backup_closed_boards && $board->closed) {
-        continue;
-    }
-
-    if (isset($ignore_boards) && in_array($board->name, $ignore_boards)) {
-        continue;
-    }
-    if (isset($boards_to_download) && !empty($boards_to_download) && !in_array($board->name, $boards_to_download)) {
-        continue;
-    }
-
-    $boards[$board->id] = (object)array(
-        "name" => $board->name,
-        "orgName" => (isset($organizations[$board->idOrganization]) ? $organizations[$board->idOrganization] : ''),
-        "closed" => (($board->closed) ? true : false)
-    );
-}
-if (empty($boards)) {
-    die("Error: No boards found in your account. Please review your configuration or start by adding a board to your account.");
-}
-
-echo count($boards) . " boards to backup... \n";
-
-// 5) Backup now!
-foreach ($boards as $id => $board) {
-    $url_individual_board_json = "https://api.trello.com/1/boards/$id?actions=all&actions_limit=1000&card_attachment_fields=all&cards=all&lists=all&members=all&member_fields=all&card_attachment_fields=all&checklists=all&fields=all&key=$key&token=$application_token";
-    $dirname = getPathToStoreBackups($path, $board, $filename_append_datetime);
     
+    // 4) Only backup the "open" boards
+    $boards = array();
+    foreach ($boardsInfo as $board) {
+        if (!$backup_closed_boards && $board->closed) {
+            continue;
+        }
+        
+        if (isset($ignore_boards) && in_array($board->name, $ignore_boards)) {
+            continue;
+        }
+        if (isset($boards_to_download) && !empty($boards_to_download) && !in_array($board->name, $boards_to_download)) {
+            continue;
+        }
+        
+        $boards[$board->id] = (object)array(
+            "name" => $board->name,
+            "orgName" => (isset($organizations[$board->idOrganization]) ? $organizations[$board->idOrganization] : ''),
+            "closed" => (($board->closed) ? true : false)
+        );
+    }
+    if (empty($boards)) {
+        die("Error: No boards found in your account. Please review your configuration or start by adding a board to your account.");
+    }
+    
+    echo count($boards) . " boards to backup... \n";
+    $datetime = $filename_append_datetime ? date($filename_append_datetime, time()) : '';
+    
+    // 5) Backup now!
+    foreach ($boards as $id => $board) {
+        $url_individual_board_json = "https://api.trello.com/1/boards/$id?actions=all&actions_limit=1000&card_attachment_fields=all&cards=all&lists=all&members=all&member_fields=all&card_attachment_fields=all&checklists=all&fields=all&key=$key&token=$application_token";
+        $dirname = getPathToStoreBackups($path, $board, $datetime);
+        
         if(!file_exists($dirname)) {
             create_backup_dir($dirname);
-    }
-
-    if(!is_writable($path)) {
+        }
+        
+        if(!is_writable($path)) {
         die("You don't have permission to write to backup dir $path");
     }
     
@@ -164,16 +165,17 @@ echo "your Trello boards are now safely downloaded!\n";
 /**
  * @param $path
  * @param $board
- * @param $filename_append_datetime
+ * @param $datetime
  * @return string
  */
-function getPathToStoreBackups($path, $board, $filename_append_datetime)
+function getPathToStoreBackups($path, $board, $datetime)
 {
-    return "$path/trello"
+    return "$path/backups"
+    . (($datetime) ? '/' . $datetime : '')
+    . "/trello"
     . (($board->closed) ? '-CLOSED' : '')
     . (!empty($board->orgName) ? '-org-' . sanitize_file_name($board->orgName) : '')
-    . '-board-' . sanitize_file_name($board->name)
-    . (($filename_append_datetime) ? '-' . date($filename_append_datetime, time()) : '');
+    . '-board-' . sanitize_file_name($board->name);
 }
 
 /**
