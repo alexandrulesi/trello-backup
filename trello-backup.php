@@ -113,8 +113,8 @@ foreach ($boards as $id => $board) {
     $url_individual_board_json = "https://api.trello.com/1/boards/$id?actions=all&actions_limit=1000&card_attachment_fields=all&cards=all&lists=all&members=all&member_fields=all&card_attachment_fields=all&checklists=all&fields=all&key=$key&token=$application_token";
     $dirname = getPathToStoreBackups($path, $board, $filename_append_datetime);
     
-    if(!file_exists($path)) {
-        create_backup_dir($path);
+        if(!file_exists($dirname)) {
+            create_backup_dir($dirname);
     }
 
     if(!is_writable($path)) {
